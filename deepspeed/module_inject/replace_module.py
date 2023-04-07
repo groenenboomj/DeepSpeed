@@ -446,7 +446,6 @@ def replace_transformer_layer(orig_layer_impl,
                     fp16=fp16,
                     pre_layer_norm=policy.pre_attn_norm,
                     mp_size=config.tensor_parallel.tp_size,
-                    q_int8=quantize,
                     quantization_bits=config.quant.weight.num_bits,
                     return_tuple=(config.return_tuple
                                   or (policy_cls is HFBertLayerPolicy)),
