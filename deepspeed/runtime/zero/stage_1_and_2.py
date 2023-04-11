@@ -5,7 +5,12 @@ Copyright 2019 The Microsoft DeepSpeed Team
 import torch
 import os
 from deepspeed import comm as dist
-from torch._six import inf
+
+try:
+    from torch._six import inf as inf
+except ModuleNotFoundError:
+    from torch import inf as inf
+
 from packaging import version as pkg_version
 from collections import OrderedDict
 
