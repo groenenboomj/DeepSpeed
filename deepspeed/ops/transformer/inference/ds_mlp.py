@@ -94,8 +94,11 @@ class DeepSpeedMLP(nn.Module):
         super(DeepSpeedMLP, self).__init__()
 
         self.config = config
-        data_type = torch.int8 if config.quantize else torch.half if config.fp16 else torch.float
-        data_type_fp = torch.half if config.fp16 else torch.float
+        
+        data_type = torch.int8 if config.quantize else torch.half if self.config.dtype == torch.half else torch.float
+        data_type_fp = torch.half if self.config.dtype == torch.half else torch.float
+        ###data_type = torch.int8 if config.quantize else torch.half if config.fp16 else torch.float
+        ###data_type_fp = torch.half if config.fp16 else torch.float
         #device = get_accelerator().current_device_name()
         device = torch.cuda.current_device() if config.bigscience_bloom else 'cpu'
         proj_factor = 2 if self.config.mlp_act_func_type in GATED_ACTIVATION_TYPES else 1
@@ -156,18 +159,18 @@ class DeepSpeedMLP(nn.Module):
             builder = op_builder.InferenceBuilder()
             inference_cuda_module = builder.load()
 
-        self.bias_residual_func = inference_cuda_module.bias_residual_fp16 if config.fp16 or config.quantize else \
+        self.bias_residual_func = inference_cuda_module.bias_residual_fp16 if self.config.dtype == torch.half or config.quantize else \
                                     inference_cuda_module.bias_residual_fp32
 
-        self.residual_add_func = inference_cuda_module.residual_add_bias_fp16 if config.fp16 or config.quantize else \
+        self.residual_add_func = inference_cuda_module.residual_add_bias_fp16 if self.config.dtype == torch.half or config.quantize else \
                                     inference_cuda_module.residual_add_bias_fp32
         
         self.mp_group = mp_group
-        self.mlp_gemm_func = inference_cuda_module.mlp_gemm_fp16 if config.fp16 else \
+        self.mlp_gemm_func = inference_cuda_module.mlp_gemm_fp16 if self.config.dtype == torch.half else \
                                     inference_cuda_module.mlp_gemm_fp32
-        self.vector_matmul_func = inference_cuda_module.vector_matmul_fp16 if config.fp16 else \
+        self.vector_matmul_func = inference_cuda_module.vector_matmul_fp16 if self.config.dtype == torch.half else \
                                 inference_cuda_module.vector_matmul_fp32
-        self.fused_gemm_gelu = inference_cuda_module.fused_gemm_gelu_fp16 if config.fp16 else \
+        self.fused_gemm_gelu = inference_cuda_module.fused_gemm_gelu_fp16 if self.config.dtype == torch.half else \
                                     inference_cuda_module.fused_gemm_gelu_fp32 
 
         #self.mlp_gemm_func = MLPGemmOp(config)

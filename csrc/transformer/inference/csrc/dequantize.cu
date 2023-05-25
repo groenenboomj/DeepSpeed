@@ -11,6 +11,19 @@
 #define loop_unroll 1
 #define loop_unroll_bits 1
 
+/*
+#define INSTANTIATE_DEQUANTIZE_MERGE(T) \
+template void launch_dequantize<T>( \
+T*, const int8_t*, const float*, unsigned, unsigned, unsigned, unsigned, cudaStream_t);
+
+
+INSTANTIATE_DEQUANTIZE_MERGE(float);
+#ifdef BF16_AVAILABLE
+INSTANTIATE_DEQUANTIZE_MERGE(__nv_bfloat16);
+#endif
+INSTANTIATE_DEQUANTIZE_MERGE(__half);
+*/
+
 template <typename T>
 __global__ void dequantize_kernel(T* output,
                                   const int8_t* input,
@@ -62,16 +75,6 @@ void launch_dequantize(T* output,
     dequantize_kernel<<<grid_dims, block_dims, 0, stream>>>(
         output, input, qscale, output_size, hidden_dim, groups, merge_count);
 }
-
-#define INSTANTIATE_DEQUANTIZE_MERGE(T) \
-    template void launch_dequantize<T>( \
-        T*, const int8_t*, const float*, unsigned, unsigned, unsigned, unsigned, cudaStream_t);
-
-INSTANTIATE_DEQUANTIZE_MERGE(float);
-#ifdef BF16_AVAILABLE
-INSTANTIATE_DEQUANTIZE_MERGE(__nv_bfloat16);
-#endif
-INSTANTIATE_DEQUANTIZE_MERGE(__half);
 
 __global__ void dequantize_kernel(float* output,
                                   const int8_t* input,
@@ -304,12 +307,3 @@ template void launch_dequantize_v2<__half>(__half*,
                                         int,
                                         cudaStream_t);
 
-#define INSTANTIATE_DEQUANTIZE_NO_MERGE(T) \
-    template void launch_dequantize<T>(    \
-        T*, const int8_t*, const float*, unsigned, unsigned, unsigned, cudaStream_t);
-
-INSTANTIATE_DEQUANTIZE_NO_MERGE(float);
-#ifdef BF16_AVAILABLE
-INSTANTIATE_DEQUANTIZE_NO_MERGE(__nv_bfloat16);
-#endif
-INSTANTIATE_DEQUANTIZE_NO_MERGE(__half);

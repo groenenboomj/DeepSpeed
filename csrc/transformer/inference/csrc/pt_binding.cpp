@@ -859,7 +859,7 @@ at::Tensor dequantize(at::Tensor& weight,
                       weight.size(0),
                       weight.size(1),
                       q_bits,
-                      Context::Instance().GetCurrentStream());
+                      InferenceContext::Instance().GetCurrentStream());
     return out;
 }
 
@@ -872,8 +872,8 @@ void quantized_gemm(void* output,
                     int bsz,
                     int q_bits)
 {
-    T* weight16 = (T*)Context::Instance().GetWorkSpace() +
-                  12 * Context::Instance().GetMaxTokenLenght() * weight.size(1);
+    T* weight16 = (T*)InferenceContext::Instance().GetWorkSpace() +
+                  12 * InferenceContext::Instance().GetMaxTokenLength() * weight.size(1);
     int out_size = weight.size(0);
     if (q_bits == 4) out_size *= 2;
     launch_dequantize_v2(weight16,
@@ -962,9 +962,9 @@ at::Tensor qkv_unfused_cublas(at::Tensor& output,
         cublasSetStream(InferenceContext::Instance().GetCublasHandle(),
                         InferenceContext::Instance().GetCurrentStream());
         cublas_gemm_ex(InferenceContext::Instance().GetCublasHandle(),
-                       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
+		       (quantize ? CUBLAS_OP_T : CUBLAS_OP_N),
                        CUBLAS_OP_N,
-                       weight.size(transposed_mode ? 0 : 1),
+                       out_size,
                        bsz,
                        input.size(2),
                        &alpha,
@@ -976,6 +976,7 @@ at::Tensor qkv_unfused_cublas(at::Tensor& output,
                        rocblas_gemm_algo_standard);
 #else
                        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+		      // (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
 #endif
     }
     if (add_bias)
@@ -1037,9 +1038,9 @@ std::vector<at::Tensor> ds_rms_qkv(at::Tensor& input,
         cublasSetStream(InferenceContext::Instance().GetCublasHandle(),
                         InferenceContext::Instance().GetCurrentStream());
         cublas_gemm_ex(InferenceContext::Instance().GetCublasHandle(),
-                       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
+		       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
                        CUBLAS_OP_N,
-                       weight.size(transposed_mode ? 0 : 1),
+                       out_size,
                        bsz,
                        input.size(2),
                        &alpha,
@@ -1051,6 +1052,7 @@ std::vector<at::Tensor> ds_rms_qkv(at::Tensor& input,
                        rocblas_gemm_algo_standard);
 #else
                        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+		       //(transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
 #endif
     }
 
@@ -1172,7 +1174,7 @@ at::Tensor ds_linear_layer(at::Tensor& input,
                     InferenceContext::Instance().GetCurrentStream());
 
     cublas_gemm_ex(InferenceContext::Instance().GetCublasHandle(),
-                   (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
+		   (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
                    CUBLAS_OP_N,
                    weight.size(transposed_mode ? 0 : 1),
                    bsz,
@@ -1186,6 +1188,7 @@ at::Tensor ds_linear_layer(at::Tensor& input,
                    rocblas_gemm_algo_standard);
 #else
                    CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+		   //(transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
 #endif
     if (add_bias)
         launch_bias_add((T*)output.data_ptr(),
@@ -1397,9 +1400,9 @@ at::Tensor ds_vector_matmul(at::Tensor& input,
         cublasSetStream(InferenceContext::Instance().GetCublasHandle(),
                         InferenceContext::Instance().GetCurrentStream(async_op));
         cublas_gemm_ex(InferenceContext::Instance().GetCublasHandle(),
-                       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
+		       (quantize ? CUBLAS_OP_T : CUBLAS_OP_N),	
                        CUBLAS_OP_N,
-                       weight.size(transposed_mode ? 0 : 1),
+                       out_size,
                        bsz,
                        input.size(2),
                        &alpha,
@@ -1411,6 +1414,7 @@ at::Tensor ds_vector_matmul(at::Tensor& input,
                        rocblas_gemm_algo_standard);
 #else
                        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+		       //(transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
 #endif
     }
     return output;
@@ -1504,9 +1508,9 @@ at::Tensor mlp_unfused_cublas(at::Tensor& output,
         cublasSetStream(InferenceContext::Instance().GetCublasHandle(),
                         InferenceContext::Instance().GetCurrentStream());
         cublas_gemm_ex(InferenceContext::Instance().GetCublasHandle(),
-                       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
+		       (quantize ? CUBLAS_OP_T : CUBLAS_OP_N),
                        CUBLAS_OP_N,
-                       weight.size(transposed_mode ? 0 : 1),
+                       out_size,
                        bsz,
                        input.size(2),
                        &alpha,
@@ -1518,6 +1522,7 @@ at::Tensor mlp_unfused_cublas(at::Tensor& output,
                        rocblas_gemm_algo_standard);
 #else
                        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+		       //(transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
 #endif
     }
     if (act_func_type == ActivationFuncType::GELU) {
@@ -1555,11 +1560,11 @@ at::Tensor mlp_unfused_cublas(at::Tensor& output,
         cublasSetStream(InferenceContext::Instance().GetCublasHandle(),
                         InferenceContext::Instance().GetCurrentStream());
         cublas_gemm_ex(InferenceContext::Instance().GetCublasHandle(),
-                       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
+		       (quantize ? CUBLAS_OP_T : CUBLAS_OP_N),
                        CUBLAS_OP_N,
-                       weight1.size(transposed_mode ? 0 : 1),
+                       out_size,
                        bsz,
-                       weight1.size(transposed_mode ? 1 : 0),
+                       input.size(2),
                        &alpha,
                        &gemm_beta,
                        (T*)weight1.data_ptr(),
@@ -1569,6 +1574,7 @@ at::Tensor mlp_unfused_cublas(at::Tensor& output,
                        rocblas_gemm_algo_standard);
 #else
                        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+		       //(transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
 #endif
     }
 
@@ -1698,7 +1704,7 @@ std::vector<at::Tensor> ds_rms_mlp_gemm(at::Tensor& input,
         cublasSetStream(InferenceContext::Instance().GetCublasHandle(),
                         InferenceContext::Instance().GetCurrentStream());
         cublas_gemm_ex(InferenceContext::Instance().GetCublasHandle(),
-                       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
+		       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
                        CUBLAS_OP_N,
                        mlp_1_out_neurons,
                        bsz,
@@ -1712,6 +1718,7 @@ std::vector<at::Tensor> ds_rms_mlp_gemm(at::Tensor& input,
                        rocblas_gemm_algo_standard);
 #else
                        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+		       //(transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
 #endif
     }
 
@@ -1761,7 +1768,7 @@ std::vector<at::Tensor> ds_rms_mlp_gemm(at::Tensor& input,
         cublasSetStream(InferenceContext::Instance().GetCublasHandle(),
                         InferenceContext::Instance().GetCurrentStream());
         cublas_gemm_ex(InferenceContext::Instance().GetCublasHandle(),
-                       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
+		       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
                        CUBLAS_OP_N,
                        input_neurons,
                        bsz,
@@ -1777,6 +1784,7 @@ std::vector<at::Tensor> ds_rms_mlp_gemm(at::Tensor& input,
                        CUBLAS_GEMM_DEFAULT_TENSOR_OP,
 #endif
                        mlp_1_out_neurons);
+	               //(transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
     }
 
     return {output, residual};
@@ -1823,7 +1831,7 @@ at::Tensor fused_gemm_gelu(at::Tensor& input,
         cublasSetStream(InferenceContext::Instance().GetCublasHandle(),
                         InferenceContext::Instance().GetCurrentStream());
         cublas_gemm_ex(InferenceContext::Instance().GetCublasHandle(),
-                       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
+		       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
                        CUBLAS_OP_N,
                        intm_dim,
                        bsz,
@@ -1838,6 +1846,7 @@ at::Tensor fused_gemm_gelu(at::Tensor& input,
 #else
                        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
 #endif
+		       //(transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
     }
     launch_bias_gelu((T*)intermediate.data_ptr(),
                      (T*)bias.data_ptr(),
@@ -1857,7 +1866,7 @@ at::Tensor fused_gemm_gelu(at::Tensor& input,
                           input.size(2));
     } else {
         cublas_gemm_ex(InferenceContext::Instance().GetCublasHandle(),
-                       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
+		       (transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
                        CUBLAS_OP_N,
                        out_size,
                        bsz,
@@ -1873,6 +1882,7 @@ at::Tensor fused_gemm_gelu(at::Tensor& input,
                        CUBLAS_GEMM_DEFAULT_TENSOR_OP);
 #endif
     }
+    //(transposed_mode ? CUBLAS_OP_T : CUBLAS_OP_N),
     // cudaEventRecord(InferenceContext::Instance().GetCompEvent(2),
     //                InferenceContext::Instance().GetCurrentStream(true));
     return output;

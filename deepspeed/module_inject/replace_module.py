@@ -329,8 +329,7 @@ def replace_transformer_layer(orig_layer_impl,
                               base_dir="",
                               enable_cuda_graph=False,
                               max_out_tokens=1024):
-
-#container_g = None
+#   container_g = None
 #def replace_transformer_layer(orig_layer_impl, model, checkpoint_dict, config, model_config):
 
     """ Replace bert-style transformer layers with DeepSpeed's transformer layer
@@ -360,6 +359,7 @@ def replace_transformer_layer(orig_layer_impl,
                                           mp_size=config.tensor_parallel.tp_size)  #, out_dim=0, in_dim=1)
 
     def replace_with_policy(child, policy_cls, triangular_masking, inference=False, layer_id=0):
+        container_g = None
         policy = policy_cls(child, inference=inference)
         if not policy.cuda_graph_supported:
             # policy says cuda graph is not supported raise an error if set
@@ -486,7 +486,7 @@ def replace_transformer_layer(orig_layer_impl,
         _container.copy_data_to_new_module()
 
         # 11. set global for generic checkpoint loading
-        global container_g
+        #global container_g
 
         if container_g is None:
             container_g = _container
