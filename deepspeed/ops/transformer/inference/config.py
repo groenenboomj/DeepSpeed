@@ -1,11 +1,15 @@
-'''
-Copyright 2022 The Microsoft DeepSpeed Team
-'''
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: Apache-2.0
+
+# DeepSpeed Team
+
 import json
-from deepspeed.utils.types import ActivationFuncType
+import torch
+from deepspeed.utils.types import ActivationFuncType, NormType
 
 
 class TransformerConfig():
+
     def __init__(self, hidden_size, intermediate_size, heads, num_hidden_layers):
         self.layer_id = -1
         self.hidden_size = hidden_size
@@ -40,6 +44,7 @@ class DeepSpeedInferenceConfig(TransformerConfig):
             return_tuple: if True, returns the transformer output as a tuple, otherwise returns as a tensor
             bigscience_bloom: This flag is added temporarily for supporting the BLOOM-176B model architecture.
     """
+
     def __init__(self,
                  hidden_size=-1,
                  intermediate_size=-1,
@@ -51,7 +56,9 @@ class DeepSpeedInferenceConfig(TransformerConfig):
                  fp16=False,
                  quantize=False,
                  quantization_bits=8,
+                 dtype=torch.float16,
                  pre_layer_norm=True,
+                 norm_type=NormType.LayerNorm,
                  stochastic_mode=False,
                  scale_attention=True,
                  triangular_masking=True,
@@ -66,15 +73,19 @@ class DeepSpeedInferenceConfig(TransformerConfig):
                  training_mp_size=1,
                  bigscience_bloom=False,
                  max_out_tokens=1024,
-                 scale_attn_by_inverse_layer_idx=False):
+                 min_out_tokens=1,
+                 enable_qkv_quantization=False,
+                 use_mup=False,
+                 scale_attn_by_inverse_layer_idx=False,
+                 return_single_tuple=False,
+                 set_empty_params=False,
+                 transposed_mode=False):
         super(DeepSpeedInferenceConfig,
-              self).__init__(
-                  hidden_size,
-                  (intermediate_size if intermediate_size > 0 else 4 * hidden_size),
-                  heads,
-                  num_hidden_layers)
-        self.fp16 = fp16
+              self).__init__(hidden_size, (intermediate_size if intermediate_size > 0 else 4 * hidden_size), heads,
+                             num_hidden_layers)
+        self.dtype = dtype
         self.pre_layer_norm = pre_layer_norm
+        self.norm_type = norm_type
         self.local_rank = local_rank
         self.stochastic_mode = stochastic_mode
         self.epsilon = layer_norm_eps
@@ -95,7 +106,13 @@ class DeepSpeedInferenceConfig(TransformerConfig):
         self.training_mp_size = training_mp_size
         self.bigscience_bloom = bigscience_bloom
         self.max_out_tokens = max_out_tokens
+        self.min_out_tokens = min_out_tokens
         self.scale_attn_by_inverse_layer_idx = scale_attn_by_inverse_layer_idx
+        self.enable_qkv_quantization = enable_qkv_quantization
+        self.use_mup = use_mup
+        self.return_single_tuple = return_single_tuple
+        self.set_empty_params = set_empty_params
+        self.transposed_mode = transposed_mode
 
     @classmethod
     def from_dict(cls, json_object):

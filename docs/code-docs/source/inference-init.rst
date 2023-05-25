@@ -15,6 +15,19 @@ the ``InferenceEngine``. The config should be passed as a dictionary to
 .. _DeepSpeedInferenceConfig:
 .. autopydantic_model:: deepspeed.inference.config.DeepSpeedInferenceConfig
 
+.. _DeepSpeedTPConfig:
+.. autopydantic_model:: deepspeed.inference.config.DeepSpeedTPConfig
+
+.. _DeepSpeedMoEConfig:
+.. autopydantic_model:: deepspeed.inference.config.DeepSpeedMoEConfig
+
+.. _QuantizationConfig:
+.. autopydantic_model:: deepspeed.inference.config.QuantizationConfig
+
+.. _InferenceCheckpointConfig:
+.. autopydantic_model:: deepspeed.inference.config.InferenceCheckpointConfig
+
+
 Example config:
 
 .. code-block:: python
@@ -23,8 +36,7 @@ Example config:
 	"kernel_inject": True,
 	"tensor_parallel": {"tp_size": 4},
 	"dtype": "fp16",
-	"enable_cuda_graph": False,
-	"replace_method": "auto",
+	"enable_cuda_graph": False
     }
 
 .. autofunction:: deepspeed.init_inference

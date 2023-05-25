@@ -1,6 +1,7 @@
-/*
-Copyright 2022 The Microsoft DeepSpeed Team
-*/
+// Copyright (c) Microsoft Corporation.
+// SPDX-License-Identifier: Apache-2.0
+
+// DeepSpeed Team
 
 #pragma once
 
@@ -263,7 +264,7 @@ DS_D_INLINE __half init<ROpType::Min>()
 }
 
 template <>
-__half init<ROpType::Max>()
+DS_D_INLINE __half init<ROpType::Max>()
 {
     constexpr __half_raw neg_inf = {0xFC00};
     return __half(neg_inf);
@@ -272,21 +273,33 @@ __half init<ROpType::Max>()
 template <>
 DS_D_INLINE __half2 init<ROpType::Add>()
 {
+#if defined(__HIP_PLATFORM_HCC__)
+    constexpr __half2_raw zero = {_Float16_2{0x0000,0x0000}};
+#else
     constexpr __half2_raw zero = {0x0000, 0x0000};
+#endif
     return __half2(zero);
 }
 
 template <>
 DS_D_INLINE __half2 init<ROpType::Min>()
 {
+#if defined(__HIP_PLATFORM_HCC__)
+    constexpr __half2_raw inf = {_Float16_2{0x7C00,0x7C00}};
+#else
     constexpr __half2_raw inf = {0x7C00, 0x7C00};
+#endif
     return __half2(inf);
 }
 
 template <>
 DS_D_INLINE __half2 init<ROpType::Max>()
 {
+#if defined(__HIP_PLATFORM_HCC__)
+    constexpr __half2_raw neg_inf = {_Float16_2{0xFC00,0xFC00}};
+#else
     constexpr __half2_raw neg_inf = {0xFC00, 0xFC00};
+#endif
     return __half2(neg_inf);
 }
 
@@ -514,11 +527,11 @@ DS_D_INLINE void partitioned_block(cg::thread_block& tb,
                                    float& val)
 {
     if (num_threads <= hw_warp_size) {
-        _warp<Op, num_threads>(warp, val);
+        _warp<Op, num_threads>(warp, &val);
     } else {
         constexpr int num_warps = num_threads / hw_warp_size;
         const int warp_offset = warp.meta_group_rank() & ~(num_warps - 1);
-        _block<num_warps, Op>(tb, warp, val, warp_offset);
+        _block<num_warps, Op>(tb, warp, &val, warp_offset);
     }
 }
 
